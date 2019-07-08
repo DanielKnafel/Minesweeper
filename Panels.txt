@@ -1,0 +1,401 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.Diagnostics;
+
+namespace Minesweeper
+{
+    public partial class Form1 : Form
+    {
+        private BlockGrid grid;
+        private int size, numberOfBombs, numberOfFlaggedBombs, numerOfRevealedCells; // Size of each side of the grid, number of bombs in the game, how many bombs are flagged at each stage fo the game and how many cells are revealed
+        private int buffer; // A buffer from the edges of the game board in pixels
+        private MyButton[,] buttonArray;
+        private Size buttonSize; // The size of each button in the game 
+        private MyTimer gameTimer; // Game timer
+        private Label timerLabel, numberOfBombsLabel; 
+        private bool openingFormClosed, userLostTheGame; // Indicates if the Opening form was closed
+        private Font font; // Unifide font for all the text
+        private Button smileyButton; // The button with the smiley face to restart the game
+        private TableLayoutPanel layoutPanel;
+        private Panel topPanel, bottomPanel, centerPanel;
+
+        public Form1() // Constructor
+        {
+            using (OpeningForm openingForm = new OpeningForm()) // Get the size and number of bombs of the game from the opening form
+            {
+                if (openingForm.ShowDialog() == DialogResult.OK)
+                {
+                    this.size = openingForm.SelectedMode.Size;
+                    this.numberOfBombs = openingForm.SelectedMode.NumberOfBombs;
+                    this.openingFormClosed = false;
+                }
+                else
+                    this.openingFormClosed = true; // The opening form was closed and not submited
+            }
+            InitializeComponent();
+            this.userLostTheGame = false;
+            this.font = new Font("Cambria", 12);
+            this.buttonSize = new Size(30, 30);
+            this.buffer = 5; 
+            this.gameTimer = new MyTimer();
+            this.gameTimer.Tick += new EventHandler(TimerTick);
+            this.Size = new Size(buttonSize.Width * (size + 4), buttonSize.Height * (size + 6)); // Adjust the size of the form to the array
+            SetPanels();
+            SetFormControls(); // Initialize all the labels and the smiley button
+            SetLayoutPanel();
+            this.MinimumSize = this.Size; // Dont allow the user to make the form smaller than the grid
+
+            InitiateNewGame();
+        }
+
+        private void SetLayoutPanel()
+        {
+            this.layoutPanel = new TableLayoutPanel();
+            this.layoutPanel.AutoSize = true;
+            centerPanel.Controls.Add(layoutPanel);
+        }
+        private void SetPanels()
+        {
+            topPanel = new Panel();
+            topPanel.Location = new Point(buffer, buffer);
+            topPanel.Dock = DockStyle.Top;
+            topPanel.Size = new Size(this.Width, buttonSize.Height);
+            topPanel.AutoSize = true;
+            topPanel.Margin = new Padding(0);
+            topPanel.Padding = new Padding(0);
+            topPanel.Anchor = AnchorStyles.Top;
+            //topPanel.Dock = DockStyle.Top;
+            Controls.Add(topPanel);
+
+            centerPanel = new Panel();
+            centerPanel.Location = new Point(topPanel.Location.X , topPanel.Location.Y + topPanel.Size.Height + buffer *2);
+            centerPanel.AutoSize = true;
+            centerPanel.Size = new Size(size * buttonSize.Width , size * buttonSize.Height);
+            centerPanel.Margin = new Padding(0);
+            centerPanel.Padding = new Padding(0);
+            Controls.Add(centerPanel);
+        }
+        private void SetFormControls()
+        {
+            SetNumberOfBombsLabel();
+            SetSmileyButton();
+            SetTimerLabel();
+        }
+        private void SetNumberOfBombsLabel()
+        {
+            this.numberOfBombsLabel = new Label();
+            numberOfBombsLabel.AutoSize = false;
+            this.numberOfBombsLabel.Size = new Size(buttonSize.Width * 2, buttonSize.Height);
+            this.numberOfBombsLabel.TextAlign = ContentAlignment.MiddleCenter;
+            this.numberOfBombsLabel.Font = this.font;
+            //this.numberOfBombsLabel.Location = new Point(buffer, smileyButton.Location.Y); // Put the number of bombs remaning label in the top-left of the form
+            this.numberOfBombsLabel.Location = new Point(topPanel.Location.X, topPanel.Location.Y);
+            numberOfBombsLabel.Dock = DockStyle.Left;
+            this.numberOfBombsLabel.BorderStyle = BorderStyle.Fixed3D;
+            numberOfBombsLabel.Margin = new Padding(0);
+            numberOfBombsLabel.Padding = new Padding(0);
+            topPanel.Controls.Add(this.numberOfBombsLabel);
+            //Controls.Add(numberOfBombsLabel);
+        }
+        public bool OpeningFormClosed // Property for openingFormClosed 
+        {
+            get { return this.openingFormClosed; }
+        }
+        private void RestartGame() // Start a new game in a new form 
+        {
+            Form newForm = new Form1();
+            newForm.FormClosing += delegate { this.Close(); };
+            newForm.Show();
+            this.Hide();
+        }
+        private void SetSmileyButton()  // Sets the smiley button's design, location and function
+        {
+            this.smileyButton = new Button();
+            this.smileyButton.Size = this.buttonSize;
+            //this.smileyButton.Location = new Point(size / 2 * buttonSize.Width - buttonSize.Width / 2, buffer);
+            this.smileyButton.Location = new Point(topPanel.Width / 2 - buffer, topPanel.Location.Y);
+            this.smileyButton.Image = Properties.Resources.happy_smiley;
+            this.smileyButton.Click += (s, e) => // Restart the game if the user clicks the smiley button
+            {
+                RestartGame();
+            };
+            smileyButton.Anchor = AnchorStyles.Top;
+            smileyButton.Margin = new Padding(0);
+            smileyButton.Padding = new Padding(0);
+            topPanel.Controls.Add(this.smileyButton);
+            //Controls.Add(this.smileyButton);
+        }
+        private void SetTimerLabel() // Sets the timer label's design and location 
+        {
+            this.timerLabel = new Label();
+            this.timerLabel.Size = new Size(buttonSize.Width * 2, buttonSize.Height);
+            this.timerLabel.TextAlign = ContentAlignment.MiddleCenter;
+            this.timerLabel.Font = this.font;
+            this.timerLabel.Location = new Point((size / 2 * buttonSize.Width) - timerLabel.Width/2 + buffer, buffer + smileyButton.Location.Y + smileyButton.Height + size * buttonSize.Height); // Put the label in the bottom-middle of the form
+            this.timerLabel.BorderStyle = BorderStyle.Fixed3D;
+            Controls.Add(timerLabel);
+        }
+        private void TimerTick(object sender, EventArgs e) // Updates the timerLabel with elapsed time 
+        {
+            TimeSpan ts = DateTime.Now - gameTimer.TimerStartedTime - gameTimer.StopWatch;
+            string elapsedTime = String.Format("{0:00}:{1:00}", ts.Minutes, ts.Seconds);
+            timerLabel.Text = elapsedTime;
+        }
+        private void InitiateNewGame() // Initiates a new game
+        {
+            numberOfBombsLabel.Font = this.font;
+            numberOfBombsLabel.Text = numberOfBombs.ToString();
+            this.grid = new BlockGrid(size, numberOfBombs);
+            numberOfFlaggedBombs = 0;
+            numerOfRevealedCells = 0;
+            InitiateButtonArray();
+            this.gameTimer.Start();
+        }
+        private void InitiateButtonArray() // Initiates the button array 
+        {
+            this.buttonArray = new MyButton[size, size];
+            for (int i = 0; i < size; i++)
+            {
+                for (int j = 0; j < size; j++)
+                {
+                    SetButton(i, j);
+                }
+            }
+        }
+        private void SetButton(int i, int j) // Sets each button's design, location and click events
+        {
+            this.buttonArray[i, j] = new MyButton(i, j);
+            this.buttonArray[i, j].Size = buttonSize;
+            //this.buttonArray[i, j].Location = new Point(buffer + i * buttonSize.Width, buffer + smileyButton.Location.Y + smileyButton.Size.Height + j * buttonSize.Height);
+            this.buttonArray[i, j].Font = this.font;
+            this.buttonArray[i, j].Image = Properties.Resources.Minesweeper_unopened_square_svg;
+            this.buttonArray[i, j].MouseDown += new MouseEventHandler(ButtonMouseDown); // Left and right click events
+            this.buttonArray[i, j].AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            this.buttonArray[i, j].AutoSize = true;
+            this.layoutPanel.Controls.Add(this.buttonArray[i, j],i,j);
+            this.buttonArray[i, j].Margin = new Padding(0);
+            //Controls.Add(this.buttonArray[i, j]);
+        }
+        private void ButtonMouseDown(object sender, MouseEventArgs e) // Left and right click event for buttons
+        {
+            MyButton b = (MyButton)sender;
+
+            if (e.Button == MouseButtons.Right) // Right click event
+                RightClick(b);
+            else if (e.Button == MouseButtons.Left) // Left click event
+                LeftClick(b); 
+            else if (e.Button == MouseButtons.Middle) // Middle Click event
+                MiddleClick(b);
+        }
+        private void RightClick(MyButton b) // Right click event
+        {
+            int x = b.ButtonLocantion.X, y = b.ButtonLocantion.Y;
+            if (!b.IsFalgged) // Flag a tile if it not flagged yet
+            {
+                if (!b.IsClicked)
+                {
+                    if (numberOfFlaggedBombs < numberOfBombs)
+                    {
+                        buttonArray[x, y].Image = Properties.Resources.Minesweeper_flag_svg;
+                        b.IsFalgged = true;
+                        numberOfFlaggedBombs++;
+                    }
+                }
+            }
+            else // Unflag a tile
+            {
+                buttonArray[x, y].Image = Properties.Resources.Minesweeper_unopened_square_svg;
+                b.IsFalgged = false;
+                if (numberOfFlaggedBombs > 0)
+                    numberOfFlaggedBombs--;
+            }
+            numberOfBombsLabel.Text = (numberOfBombs - numberOfFlaggedBombs).ToString(); // Update the number of bombs left label atfter flagging
+        }
+        private void LeftClick(MyButton b) // Left click event
+        {
+            Point p = b.ButtonLocantion;
+            if (!b.IsFalgged) // If the cell in not flagged
+            {
+                if (!b.IsClicked) // If the cell hasn't been revealed yet
+                {
+                    if (grid.IsBlockFromGridABomb(p))
+                    {
+                        b.Image = Properties.Resources.minesweeper_bomb;
+                        GameLost();
+                    }
+                    else
+                    {
+                        MakeWoahFace(); // Make the smiley button woah for a few moments
+                        RevealButton(b);
+                        if (grid.GetNumberOfBombsAroundBlock(p) == 0)
+                            RevealEmptyCellsAround(p);
+                    }
+                }
+            }
+        }
+        private void MiddleClick(MyButton b) // Middle Click event
+        {
+            int x = b.ButtonLocantion.X, y = b.ButtonLocantion.Y;
+            int flaggedBombsCounter = 0;
+            List<MyButton> buttonsToReveal = new List<MyButton>(9);
+
+            if (!b.IsFalgged)
+            {
+                if (this.buttonArray[x, y].IsClicked)
+                {
+                    for (int i = -1; i < 2; i++)
+                    {
+                        for (int j = -1; j < 2; j++)
+                        {
+                            if (!(i == 0 && j == 0)) // Dont check the block itself
+                            {
+                                x = b.ButtonLocantion.X;
+                                y = b.ButtonLocantion.Y;
+                                if ((x + i >= 0) && (y + j >= 0) && (x + i < size) && (y + j < size))
+                                {
+                                    x += i;
+                                    y += j;
+                                    if (this.buttonArray[x, y].IsFalgged)
+                                    {
+                                        if (grid.IsBlockFromGridABomb(x, y))
+                                            flaggedBombsCounter++;
+                                        else
+                                            GameLost();
+                                    }
+                                    else if (!this.buttonArray[x, y].IsClicked)
+                                        buttonsToReveal.Add(this.buttonArray[x, y]);
+                                }
+                            }
+                        }
+                    }
+                    if (flaggedBombsCounter == grid.GetNumberOfBombsAroundBlock(b.ButtonLocantion.X, b.ButtonLocantion.Y))
+                    {
+                        MakeWoahFace();
+                        foreach (MyButton button in buttonsToReveal)
+                        {
+                            RevealButton(button);
+                            if (grid.GetNumberOfBombsAroundBlock(button.ButtonLocantion) == 0)
+                                RevealEmptyCellsAround(button.ButtonLocantion);
+                        }
+                    }
+                }
+            }
+        }
+        private void RevealButton(MyButton b) // Reveales the number of bombs around a cell
+        {
+            int x = b.ButtonLocantion.X;
+            int y = b.ButtonLocantion.Y;
+            int numberOfBombsAroundTile;
+
+            this.buttonArray[x, y].Image = Properties.Resources.opened_tile; // change the background image of the button 
+            this.buttonArray[x, y].IsClicked = true; // set the member of MyButton isClicked to true
+            this.numerOfRevealedCells++; // Add the tile to the opended tiles counter
+            numberOfBombsAroundTile = this.grid.GetNumberOfBombsAroundBlock(x, y);
+            if (numberOfBombsAroundTile > 0) // Reveal the number of bombs around the tile if its not 0
+                b.Text = this.grid.GetNumberOfBombsAroundBlock(b.ButtonLocantion).ToString();  
+            b.FlatAppearance.BorderSize = 0; // Remove the borders around the button on mouse hover
+            b.FlatStyle = FlatStyle.Flat; // Make the button background darker
+
+            if (this.numerOfRevealedCells == size * size - numberOfBombs) // If all the non-bomb cells are revealed, the user has won the game
+                GameWon();
+        }
+        private void RevealEmptyCellsAround(Point location) // Reveals all the empty cells around a given cell
+        {            
+            int x, y;
+
+            foreach (Point p in grid.GetEmptyCellsAroundList(location))
+            {
+                x = p.X;
+                y = p.Y;
+                if (!this.buttonArray[x, y].IsClicked) // If the checked cell has not been revealed yet
+                {
+                    RevealButton(this.buttonArray[x,y]);
+                    if (grid.GetNumberOfBombsAroundBlock(p) == 0)
+                        RevealEmptyCellsAround(p);
+                }
+            }
+        }
+        private void GameWon() // Game won event
+        {
+            this.gameTimer.Stop();
+            DialogResult result = MessageBox.Show("You Win!!! \nStart A New Game?", "Congratulations", MessageBoxButtons.YesNo);
+            if (result == DialogResult.Yes)
+                RestartGame();
+            else
+                DisableAllButtons();
+        }
+        private void GameLost() // Game lost event
+        {
+            this.gameTimer.Stop();
+            this.smileyButton.Image = Properties.Resources.dead;
+            foreach (Point p in grid.BombsLocations)
+            {
+                buttonArray[p.X, p.Y].Image = Properties.Resources.minesweeper_bomb;
+            }
+            DisableAllButtons();
+            userLostTheGame = true;
+            DialogResult result = MessageBox.Show("It's a BOMB \nStart A New Game?", "Game Over", MessageBoxButtons.YesNo);
+            if (result == DialogResult.Yes)
+                RestartGame();
+        }
+        private void DisableAllButtons() // Disablses all active buttons in the array
+        {
+            foreach (MyButton b in this.buttonArray)
+            {
+                b.MouseDown -= new MouseEventHandler(ButtonMouseDown);
+                b.FlatAppearance.BorderSize = 0; // Remove the borders around the button on mouse hover
+            }
+        }
+        protected override void OnFormClosing(FormClosingEventArgs e) // Confirm user wants to close
+        {
+            base.OnFormClosing(e);
+
+            if (e.CloseReason == CloseReason.WindowsShutDown)
+                return;
+            if (!this.userLostTheGame)
+            {
+                this.gameTimer.Pause();
+                switch (MessageBox.Show(this, "Are you sure you want to close?", "Closing", MessageBoxButtons.YesNo))
+                {
+                    case DialogResult.No:
+                        e.Cancel = true;
+                        this.gameTimer.Resume();
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+        private void MakeWoahFace() // Change the smiley button image to a woah face for a few moments
+        {
+            this.smileyButton.Image = Properties.Resources.woah;
+            Wait(150); // Hold the Woah face for 150ms 
+            this.smileyButton.Image = Properties.Resources.happy_smiley;
+        }
+        private void Wait(int milliseconds) // Wait a few moments for the woah face
+        {
+            Timer timer1 = new Timer();
+            if (milliseconds == 0 || milliseconds < 0) // The time to wait must be greater than 0
+                return;
+            timer1.Interval = milliseconds;
+            timer1.Enabled = true;
+            timer1.Start();
+            timer1.Tick += (s, e) =>
+            {
+                timer1.Stop();
+                timer1.Enabled = false;
+            };
+            while (timer1.Enabled) // Don't freeze the game while the animation is playing
+            {
+                Application.DoEvents();
+            }
+        }
+    }
+}

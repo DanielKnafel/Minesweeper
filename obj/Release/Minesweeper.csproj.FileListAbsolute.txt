@@ -1,0 +1,11 @@
+C:\Users\Daniel\source\repos\Minesweeper\Minesweeper\bin\Release\Minesweeper.exe.config
+C:\Users\Daniel\source\repos\Minesweeper\Minesweeper\bin\Release\Minesweeper.exe
+C:\Users\Daniel\source\repos\Minesweeper\Minesweeper\bin\Release\Minesweeper.pdb
+C:\Users\Daniel\source\repos\Minesweeper\Minesweeper\obj\Release\Minesweeper.csprojAssemblyReference.cache
+C:\Users\Daniel\source\repos\Minesweeper\Minesweeper\obj\Release\Minesweeper.Form1.resources
+C:\Users\Daniel\source\repos\Minesweeper\Minesweeper\obj\Release\Minesweeper.OpeningForm.resources
+C:\Users\Daniel\source\repos\Minesweeper\Minesweeper\obj\Release\Minesweeper.Properties.Resources.resources
+C:\Users\Daniel\source\repos\Minesweeper\Minesweeper\obj\Release\Minesweeper.csproj.GenerateResource.cache
+C:\Users\Daniel\source\repos\Minesweeper\Minesweeper\obj\Release\Minesweeper.csproj.CoreCompileInputs.cache
+C:\Users\Daniel\source\repos\Minesweeper\Minesweeper\obj\Release\Minesweeper.exe
+C:\Users\Daniel\source\repos\Minesweeper\Minesweeper\obj\Release\Minesweeper.pdb
